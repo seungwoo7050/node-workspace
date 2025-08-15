@@ -2,7 +2,11 @@
 
 ## 목표
 
-JS로 만든 `order-report`를 그대로 TS로 옮긴다. 옮기는 과정에서 타입을 명시하고, `fetchOrders`가 가끔 이상한 모양의 데이터를 돌려주게 만들어 신뢰할 수 없는 응답을 zod로 걸러내는 것까지 더한다. 완성된 동작은 아래와 같다.
+JS로 만든 `order-report`를 그대로 TS로 옮긴다. 
+
+옮기는 과정에서 타입을 명시하고, `fetchOrders`가 가끔 이상한 모양의 데이터를 돌려주게 만들어 신뢰할 수 없는 응답을 zod로 걸러내는 것까지 더한다. 
+
+완성된 동작은 아래와 같다.
 
 ```sh
 npm run typecheck && npx tsx src/main
@@ -10,6 +14,7 @@ npm run typecheck && npx tsx src/main
 > ts-order-report@1.0.0 typecheck
 > tsc --noEmit
 
+# 출력
 병렬 조회: 501.434ms
 잘못된 데이터 건너뜀: page 1의 주문 103 - price: Invalid input: expected number, received string
 잘못된 데이터 건너뜀: page 2의 주문 202 - paid: Invalid input: expected boolean, received undefined
@@ -20,17 +25,24 @@ npm run typecheck && npx tsx src/main
 
 `npx`는 설치된 도구를 바로 실행하는 명령이고, `tsx`는 TypeScript 파일을 컴파일 산출물 없이 바로 실행해 주는 도구다.
 
-> TypeScript 6.x/7.x, zod 4.x 기준이다. zod 3의 에러 문구(`Expected number, received string`, `Required`)로 된 옛 예제를 보면 이 문서와 문구가 다르다.
+> TypeScript 6.x/7.x, zod 4.x 기준이다.  
+> zod 3의 에러 문구(`Expected number, received string`, `Required`)로 된 옛 예제를 보면 이 문서와 문구가 다르다.
 
 ## 0. TS에 대한 사전지식
 
-TypeScript를 C 배경에서 접근할 때 가장 먼저 부딪히는 오해가 "C의 정적 타입과 같은 것"이라는 생각이다. 겉모습(타입 표기)은 닮았지만 타입이 언제/어떻게 검사되고 사라지는지는 근본적으로 다르다. 본문에 들어가기 전에 그 차이 3가지를 정리한다.
+TypeScript를 C 배경에서 접근할 때 가장 먼저 부딪히는 오해가 "C의 정적 타입과 같은 것"이라는 생각이다.
+
+겉모습(타입 표기)은 닮았지만 타입이 언제, 어떻게 검사되고 사라지는지는 근본적으로 다르다. 본문에 들어가기 전에 그 차이 3가지를 정리한다.
 
 ### 1. 타입은 컴파일 타임에만 존재하고, 실행 파일에는 전혀 남지 않는다.
 
-C에서 `int`로 선언한 변수는 컴파일된 바이너리 안에서도 4바이트(또는 8바이트) 정수로 다뤄진다. 타입 정보가 메모리 레이아웃을 결정하고, 그 결정은 실행 시점까지 유효하다.
+C에서 `int`로 선언한 변수는 컴파일된 바이너리 안에서도 4바이트(또는 8바이트) 정수로 다뤄진다. 
 
-TypeScript의 타입 표기(`: number`, `: Order` 등)는 컴파일러(`tsc`)가 검사만 하고 지워버리는 주석에 가깝다. `tsc`나 `tsx`가 `.ts` 파일을 JS로 바꿀 때 타입 표기는 전부 삭제되고, 실행되는 JS 코드에는 타입의 흔적이 전혀 남지 않는다(Type Erasure).
+타입 정보가 메모리 레이아웃을 결정하고, 그 결정은 실행 시점까지 유효하다.
+
+TypeScript의 타입 표기(`: number`, `: Order` 등)는 컴파일러(`tsc`)가 검사만 하고 지워버리는 주석에 가깝다.
+
+`tsc`나 `tsx`가 `.ts` 파일을 JS로 바꿀 때 타입 표기는 전부 삭제되고, 실행되는 JS 코드에는 타입의 흔적이 전혀 남지 않는다(Type Erasure).
 
 ```c
 // C: 타입이 곧 메모리 레이아웃을 결정하고, 그 결정은 실행 파일에 그대로 남는다
@@ -44,15 +56,16 @@ let price: number = 12000;
 let price = 12000; // ": number"는 흔적도 없이 사라진다
 ```
 
-이 문서 1단계에서 "타입 에러가 잔뜩 나도 `tsx`로는 그대로 실행된다"는 것과, 5단계에서 "`tsx`는 타입을 검사하지 않고 지우기만 한다"는 것 모두 이 사실 하나에서 나온다.
-
 가장 실용적인 결론은 "**타입 표기를 아무리 정교하게 써도, 런타임에 그 타입을 '확인'하는 코드는 저절로 생기지 않는다**"는 것이다.
 
-> 외부에서 온 값(API 응답, 사용자 입력)이 선언한 타입과 실제로 같은 모양인지는 개발자가 직접 검사해야 하며 zod가 필요한 이유다.
+> 외부에서 온 값(API 응답, 사용자 입력)이 선언한 타입과 실제로 같은 모양인지는 개발자가 직접 검사해야 한다.  
+> zod가 필요한 이유다.
 
 ### 2. 이름이 아니라 모양이 같으면 같은 타입이다(구조적 타이핑).
 
-C에서 두 구조체는 필드가 완전히 같아도 태그(이름)가 다르면 다른 타입이다(nominal typing). `struct Point`와 `struct Coord`가 똑같이 `{ int x, y; }`여도 캐스팅 없이는 서로 대입할 수 없다.
+C에서 두 구조체는 필드가 완전히 같아도 태그(이름)가 다르면 다른 타입이다(nominal typing).
+
+`struct Point`와 `struct Coord`가 똑같이 `{ int x, y; }`여도 캐스팅 없이는 서로 대입할 수 없다.
 
 TS는 이름이 아니라 모양(shape)이 같으면 같은 타입으로 취급한다(structural typing).
 
@@ -66,13 +79,19 @@ const c: Coord = { x: 1, y: 2 };
 move(c); // 통과: 이름이 달라도 모양이 같다. C라면 컴파일 에러다
 ```
 
-타입 추론(inference)이 자연스럽게 되는 것도 같은 원리다. `const c = { x: 1, y: 2 }`처럼 타입을 안 적어도 TS는 값의 모양만 보고 `{ x: number; y: number }`라는 타입을 붙이고, 그 모양이 `Point`와 같으면 `move(c)`가 통과한다.
+타입 추론(inference)이 자연스럽게 되는 것도 같은 원리다.
 
-C의 감각으로는 "이름을 선언 안 했는데 어떻게 타입이 생기지?"라는 의문이 들 수 있다. **TS는 애초에 이름이 아니라 모양으로 타입을 판단하므로 추론이 자연스럽게 된다.**
+`const c = { x: 1, y: 2 }`처럼 타입을 안 적어도 TS는 값의 모양만 보고 `{ x: number; y: number }`라는 타입을 붙이고, 그 모양이 `Point`와 같으면 `move(c)`가 통과한다.
+
+C의 감각으로는 "이름을 선언 안 했는데 어떻게 타입이 생기지?"라는 의문이 들 수 있다.
+
+**TS는 애초에 이름이 아니라 모양으로 타입을 판단하므로 추론이 자연스럽게 된다.**
 
 ### 3. `unknown`은 캐스팅 전의 `void*`, `any`는 검증 없는 강제 캐스팅이다.
 
-`unknown`은 C의 `void*`와 같은 위치에 있는 타입이다. "메모리는 있는데 정체는 모른다"는 뜻으로, 멤버 접근(`.price`)이나 연산을 전혀 허용하지 않고 구체적인 타입으로 좁혀야만(narrowing) 다룰 수 있다.
+`unknown`은 C의 `void*`와 같은 위치에 있는 타입이다.
+
+"메모리는 있는데 정체는 모른다"는 뜻으로, 멤버 접근(`.price`)이나 연산을 전혀 허용하지 않고 구체적인 타입으로 좁혀야만(narrowing) 다룰 수 있다.
 
 ```c
 void *raw = get_response(); // 뭔지 모르는 메모리를 가리키는 포인터
@@ -86,9 +105,13 @@ raw.price; // 컴파일 에러: unknown은 멤버 접근이 안 된다
 const o = raw as Order; // as: "이건 Order야"라고 컴파일러를 설득하는 것. 실제 값은 검증하지 않는다
 ```
 
-`raw as Order`는 C의 `(Order *)raw` 캐스팅과 정확히 같은 성격의 위험을 가진다. **컴파일은 통과하지만, 실제 메모리(값)가 정말 그 모양인지는 보장하지 않는다.**
+`raw as Order`는 C의 `(Order *)raw` 캐스팅과 정확히 같은 성격의 위험을 가진다.
 
-`any`는 한 걸음 더 나아가 "이 값에 대해서는 아예 타입 검사를 하지 마라"는 선언이다. C로 치면 캐스팅조차 없이 `void*`를 아무 타입처럼 바로 써버리는 것과 같아서, `unknown`보다도 위험하다.
+**컴파일은 통과하지만, 실제 메모리(값)가 정말 그 모양인지는 보장하지 않는다.**
+
+`any`는 한 걸음 더 나아가 "이 값에 대해서는 아예 타입 검사를 하지 마라"는 선언이다.
+
+C로 치면 캐스팅조차 없이 `void*`를 아무 타입처럼 바로 써버리는 것과 같아서, `unknown`보다도 위험하다.
 
 ## 1. 준비
 
@@ -110,7 +133,9 @@ mv api.js report.js main.js src/ # 파일은 그대로, 확장자만 곧 .ts로 
 
 `tsconfig.json`을 만든다. `npx tsc --init`도 되지만 생성 결과가 TS 버전마다 다르다.
 
-예를 들어 TS 7.0의 `--init`은 `module: "nodenext"`, `target: "esnext"`, `types: []`에 `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `jsx` 같은 옵션까지 켜진 파일을 만든다. 이 문서의 코드보다 훨씬 엄격해서 처음 보는 에러가 섞여 나오므로, 최소본을 직접 쓴다.
+예를 들어 TS 7.0의 `--init`은 `module: "nodenext"`, `target: "esnext"`, `types: []`에 `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `jsx` 같은 옵션까지 켜진 파일을 만든다.
+
+이 문서의 코드보다 훨씬 엄격해서 처음 보는 에러가 섞여 나오므로, 최소본을 직접 쓴다.
 
 > 아래처럼 필요한 옵션을 전부 명시해두면 설치되는 TS 버전이 뭐든 상관없다.
 
@@ -133,7 +158,7 @@ mv api.js report.js main.js src/ # 파일은 그대로, 확장자만 곧 .ts로 
 }
 ```
 
-> `tsconfig.json`은 JSON이지만 예외적으로 `//` 주석을 쓸 수 있다(TypeScript가 그렇게 읽는다). 일반 JSON 파일에서는 안 되므로 주의하자.
+> `tsconfig.json`은 JSON이지만 예외적으로 `//` 주석을 쓸 수 있다(TypeScript가 그렇게 읽는다).
 
 `compilerOptions`는 컴파일러(`tsc`)가 코드를 어떻게 검사하고 변환할지 정하는 옵션 모음이다.
 
@@ -175,11 +200,16 @@ import 구문의 `./api.js`, `./report.js`도 그대로 둔다. 실제 파일이
 npm run typecheck # 위 scripts의 typecheck(tsc --noEmit)를 실행한다
 ```
 
-실행 시 `TS7006 (Parameter 'orders' implicitly has an 'any' type)` 에러가 다수 발생한다(`TS7053`, `TS18046`도 섞여 나온다). `tsconfig.json`에 설정된 `"strict": true`(`noImplicitAny`) 옵션 때문에 타입이 지정되지 않은 매개변수를 허용하지 않기 때문이다.
+실행 시 `TS7006 (Parameter 'orders' implicitly has an 'any' type)` 에러가 다수 발생한다(`TS7053`, `TS18046`도 섞여 나온다).
 
-이 에러들은 코드의 기능 결함이 아닌, **타입 명시가 빠졌음을 알려주는 정상적인 신호**다. 다음 단계에서 파라미터에 명시적 타입을 추가하여 해결한다.
+`tsconfig.json`에 설정된 `"strict": true`(`noImplicitAny`) 옵션 때문에 타입이 지정되지 않은 매개변수를 허용하지 않기 때문이다.
 
-> 그런데 `npx tsx src/main.ts`로 실행해보면 정상적인 결과가 출력된다. 타입 에러가 있어도 실행은 된다. TS에서 "**타입은 검사만 하고 지워진다**"가 눈앞에서 확인되는 순간이다.
+이 에러들은 코드의 기능 결함이 아닌, **타입 명시가 빠졌음을 알려주는 정상적인 신호**다.
+
+다음 단계에서 파라미터에 명시적 타입을 추가하여 해결한다.
+
+> 그런데 `npx tsx src/main.ts`로 실행해보면 정상적인 결과가 출력된다(타입 에러가 있어도 실행은 된다).  
+> TS에서 "**타입은 검사만 하고 지워진다**"가 눈앞에서 확인되는 순간이다.
 
 ## 3. 2단계: 타입을 명시하기
 
@@ -214,16 +244,26 @@ export function topUser(totals: Record<string, number>): { name: string; total: 
 ### TS 문법
 
 - `interface Order { ... }`: 객체의 모양(필드와 그 타입)을 정의한다. `type`과의 차이는 아래에서 다시 다룬다.
+
 - 타입 표기(`이름: 타입`): 변수나 매개변수 이름 뒤에 붙여 타입을 지정한다. `orders: Order[]`는 "Order 객체의 배열"이다.
+
 - 반환 타입(`(...): 타입`): 매개변수 목록 뒤에 붙여 함수가 돌려줄 값의 타입을 적는다.
+
 - 인라인 객체 타입(`{ name: string; total: number }`): 별도 `interface` 선언 없이 그 자리에 바로 적는 객체 타입이다.
+
 - `Record<K, V>`: "키는 `K`, 값은 `V`인 객체"를 짧게 적는 유틸리티 타입이다. `Record<string, number>`는 "키는 문자열, 값은 숫자인 객체"다.
+
 - 제네릭(`<...>`): 타입을 인자처럼 넘긴다. `reduce<Record<string, number>>(...)`가 그 예이며, 아래 "제네릭"에서 다룬다.
+
 - 유니온 타입(`A | B`): 값이 여러 타입 중 하나일 수 있음을 나타낸다. 여기서는 객체 또는 `null`이며, 아래 "유니온 타입과 null"에서 다룬다.
 
 #### interface와 type
 
-둘 다 "이런 모양이어야 한다"는 계약이다. C의 `struct`와 달리 **필드 배치(메모리 레이아웃)를 정하지 않고** 구조적 타이핑에 따라 모양만 맞으면 통과한다. 둘 다 타입 소거로 컴파일 후 사라진다.
+둘 다 "이런 모양이어야 한다"는 계약이다.
+
+C의 `struct`와 달리 **필드 배치(메모리 레이아웃)를 정하지 않고** 구조적 타이핑에 따라 모양만 맞으면 통과한다.
+
+둘 다 타입 소거로 컴파일 후 사라진다.
 
 ```ts
 // interface: 확장은 extends로 한다
@@ -245,11 +285,60 @@ type Status = "paid" | "unpaid";
 
 > 객체 모양은 `interface`, 유니온이 필요하면 `type`으로 쓰는 팀이 많다. 팀 컨벤션에 따라 갈리므로 둘 다 읽을 줄 알아야 한다.
 
+#### 타입과 자료구조
+
+지금까지 나온 `interface`, `type`, `Record`는 **타입**이다. 값의 모양을 적어두는 표기이고, 컴파일하면 사라진다.
+
+그 모양대로 값을 실제로 담는 그릇은 **자료구조**이고, JS 쪽에 있으며 런타임까지 남는다.
+
+C로 치면 전자는 헤더에 적는 선언, 후자는 실제로 할당되는 메모리다.
+
+아마도 `Record<string, number>`가 모양때문에 헷갈리기 쉬운 요소다.
+
+이름이 자료구조처럼 보이지만 타입이고, 그 표기가 가리키는 실제 그릇은 그냥 객체(`{}`)다.
+
+**타입(TS, 컴파일하면 사라진다)**
+
+| 표기 | 무엇을 정의하는가 |
+| --- | --- |
+| `interface` / `type` | 객체·함수의 모양(필드와 그 타입) |
+| `Record<K, V>` | "키는 `K`, 값은 `V`인 객체"라는 모양 |
+| `Array<T>`(= `T[]`) | "`T`를 담은 배열"이라는 모양 |
+| `Map<K, V>` / `Set<T>` | 그 자료구조에 무엇이 담겼는지 |
+
+**자료구조(JS, 런타임까지 남는다)**
+
+| 값 | 무엇을 담는가 | 꺼내는 방법 |
+| --- | --- | --- |
+| 객체 `{}` | 문자열 키와 값 | `obj[key]`, `Object.entries` |
+| 배열 `[]` | 순서가 있는 값 | 인덱스, `map`/`filter`/`reduce` |
+| `new Map()` | 키와 값. 문자열 아닌 키도 된다 | `.get`/`.set`/`.delete` |
+| `new Set()` | 중복 없는 값 | `.has`/`.add`/`.delete` |
+
+같은 집계를 객체로 담을지 `Map`으로 담을지는 자료구조의 선택이고, 타입 표기는 거기에 따라온다.
+
+```ts
+// 객체에 담는다: 타입은 Record<string, number>
+.reduce<Record<string, number>>((acc, o) => {
+  acc[o.user] = (acc[o.user] ?? 0) + o.price;
+  return acc;
+}, {});
+
+// Map에 담는다: 타입은 Map<string, number>
+.reduce((acc, o) => acc.set(o.user, (acc.get(o.user) ?? 0) + o.price), new Map<string, number>());
+```
+
+이 문서는 `Object.entries`(`topUser`)와 `console.log` 출력이 바로 먹는 객체 쪽을 쓴다. `Map`은 그 둘이 통하지 않는다(`JSON.stringify(new Map())`는 `{}`가 된다).
+
 #### 제네릭
 
-C에서 "어떤 타입이든 다루는 함수"는 `void *`와 캐스팅으로 만든다. 컴파일러가 타입을 확인해 주지 못하니 캐스팅을 틀려도 모른다.
+C에서 "어떤 타입이든 다루는 함수"는 `void *`와 캐스팅으로 만든다.
 
-제네릭은 **타입 자체를 인자로 받는** 문법이다. `<T>`에 구체적인 타입이 들어오면 그 함수와 타입 안의 `T`가 전부 그 타입으로 치환되어 검사된다.
+컴파일러가 타입을 확인해 주지 못하니 캐스팅을 틀려도 모른다.
+
+제네릭은 **타입 자체를 인자로 받는** 문법이다.
+
+`<T>`에 구체적인 타입이 들어오면 그 함수와 타입 안의 `T`가 전부 그 타입으로 치환되어 검사된다.
 
 ```ts
 // 제네릭 없이: 초기값 {}의 타입이 그대로 acc의 타입이 되어 acc[o.user]가 에러다(TS7053)
@@ -259,13 +348,17 @@ orders.reduce((acc, o) => { acc[o.user] = o.price; return acc; }, {});
 orders.reduce<Record<string, number>>((acc, o) => { acc[o.user] = o.price; return acc; }, {});
 ```
 
-이미 쓰고 있던 `Order[]`도 사실 `Array<Order>`의 줄임 표기이고, `Record<string, number>`도 타입 인자 두 개를 받는 제네릭이다. `Promise<Order[]>`도 같은 문법이다.
+이미 쓰고 있던 `Order[]`도 사실 `Array<Order>`의 줄임 표기이고, `Record<string, number>`도 타입 인자 두 개를 받는 제네릭이다.
+
+> `Promise<Order[]>`도 같은 문법이다.
 
 > 제네릭 함수를 직접 만드는 법(`function f<T>(x: T)`)은 이 문서 범위 밖이다. 지금은 `<...>`가 보이면 "타입 인자를 넘기는 자리"로 읽을 수 있으면 된다.
 
 #### 유니온 타입과 null
 
-C의 `union`은 한 메모리를 여러 멤버가 공유하는 구조이고, 지금 어떤 멤버가 유효한지는 개발자가 직접 추적한다. TS의 유니온 타입은 메모리가 아니라 **"이 값은 A이거나 B다"라는 타입 수준의 선언**이고, 어느 쪽인지는 컴파일러가 코드 흐름을 보고 좁혀 준다.
+C의 `union`은 한 메모리를 여러 멤버가 공유하는 구조이고, 지금 어떤 멤버가 유효한지는 개발자가 직접 추적한다.
+
+TS의 유니온 타입은 메모리가 아니라 **"이 값은 A이거나 B다"라는 타입 수준의 선언**이고, 어느 쪽인지는 컴파일러가 코드 흐름을 보고 좁혀 준다.
 
 `topUser`의 반환 타입 `{ name: string; total: number } | null`처럼 값이 없을 수 있는 경우를 타입에 그대로 드러낼 수 있다.
 
@@ -278,7 +371,9 @@ if (result) {
 }
 ```
 
-호출하는 쪽은 `if (result)`로 좁히지 않으면 `result.name`에서 컴파일 에러를 만난다. `strictNullChecks`(`strict`에 포함)가 하는 일이다.
+호출하는 쪽은 `if (result)`로 좁히지 않으면 `result.name`에서 컴파일 에러를 만난다.
+
+`strictNullChecks`(`strict`에 포함)가 하는 일이다.
 
 ### 깨뜨려보기
 
@@ -293,7 +388,9 @@ src/api.ts(7,29): error TS2322: Type 'number' is not assignable to type 'string'
 src/report.ts(12,7): error TS2322: Type 'string' is not assignable to type 'number'.
 ```
 
-`report.ts`의 `acc[o.user] = (acc[o.user] ?? 0) + o.price`에서 타입이 안 맞다고 잡힌다(숫자 + 문자열 = 문자열인데 `acc` 값은 숫자여야 한다). `api.ts`의 Mock 데이터도 `price`가 숫자라서 전부 잡힌다.
+`report.ts`의 `acc[o.user] = (acc[o.user] ?? 0) + o.price`에서 타입이 안 맞다고 잡힌다(숫자 + 문자열 = 문자열인데 `acc` 값은 숫자여야 한다).
+
+`api.ts`의 Mock 데이터도 `price`가 숫자라서 전부 잡힌다.
 
 타입을 하나만 바꿔도 그 타입을 쓰는 모든 곳이 한꺼번에 검사된다.
 
@@ -339,19 +436,27 @@ export async function fetchOrders(page: number): Promise<Order[]> {
 }
 ```
 
-`main.ts`는 손댈 필요가 없다. `fetchOrders`가 `Order[]`를 반환하니 `totalByUser(orders)`까지 타입이 그대로 흘러간다(`r.reason`은 원래 `any`라 에러가 안 난다).
+`main.ts`는 손댈 필요가 없다.
 
-이제 `npm run typecheck`가 에러 없이 끝난다(이 상태는 3단계에서 깨진다.).
+`fetchOrders`가 `Order[]`를 반환하니 `totalByUser(orders)`까지 타입이 그대로 흘러간다(`r.reason`은 원래 `any`라 에러가 안 난다).
+
+이제 `npm run typecheck`가 에러 없이 끝난다.
 
 ### TS 문법
 
 - `import type { Order }`: 타입만 가져온다. 타입은 컴파일하면 사라지므로(0장 1절) 이 줄도 같이 사라진다.
+
 - `Promise<void>`: 완료되어도 넘겨줄 값이 없는 Promise다. `delay`처럼 "기다리기만 하는" 비동기 작업에 쓴다.
-- `Promise<Order[]>`: async 함수의 반환 타입이다. 아래 "`Promise<T>`"에서 다룬다.
+
+- `Promise<Order[]>`: async 함수의 반환 타입이다.
 
 #### `Promise<T>`
 
-JS에서 `Promise`는 "미래 값을 담는 객체"였다. TS는 그 **안에 담길 값의 타입을 `T`로 적는다.** `Promise<Order[]>`는 "완료되면 `Order[]`를 내놓는 Promise"다.
+JS에서 `Promise`는 "미래 값을 담는 객체"였다.
+
+TS는 그 **안에 담길 값의 타입을 `T`로 적는다.**
+
+`Promise<Order[]>`는 "완료되면 `Order[]`를 내놓는 Promise"다.
 
 ```ts
 export async function fetchOrders(page: number): Promise<Order[]> {
@@ -365,13 +470,18 @@ const orders = await fetchOrders(1); // 타입: Order[]. await가 Promise를 벗
 ```
 
 - `async` 함수는 `return`한 값을 자동으로 Promise에 담으므로 본문에서는 `Order[]`를 돌려주고 시그니처에는 `Promise<Order[]>`를 적는다.
+
 - `await`를 붙이면 `Promise<T>`가 `T`로 벗겨진다. `await`를 빼먹으면 `Order[]`가 필요한 자리에 `Promise<Order[]>`가 들어가 타입 에러가 난다.
 
 > `await`를 빼먹은 실수는 JS에서는 조용히 틀린 값이 흘러가지만, TS에서는 대부분 컴파일 에러로 잡힌다.
 
 ## 4. 3단계: 신뢰할 수 없는 응답 다루기
 
-지금까지 `fetchOrders`는 우리가 만든 Mock 데이터라 항상 올바른 모양이었다. 실제 API라면 그렇지 않다. 서버 버그, 스키마 변경, 네트워크 중간의 프록시 등으로 **모양이 다른 데이터가 섞여 올 수 있다.**
+지금까지 `fetchOrders`는 우리가 만든 Mock 데이터라 항상 올바른 모양이었다.
+
+실제 API라면 그렇지 않다.
+
+서버 버그, 스키마 변경, 네트워크 중간의 프록시 등으로 **모양이 다른 데이터가 섞여 올 수 있다.**
 
 `api.ts`를 이렇게 바꿔서 그 상황을 흉내 낸다.
 
@@ -400,9 +510,13 @@ export async function fetchOrders(page: number): Promise<unknown[]> {
 }
 ```
 
-2단계에서 쓴 `import type { Order }`는 이제 필요 없으니 지웠다. 반환 타입이 `Order[]`가 아니라 `Promise<unknown[]>`로 바뀐 게 핵심이다.
+2단계에서 쓴 `import type { Order }`는 이제 필요 없으니 지웠다.
 
-`unknown`은 "뭔지 모른다"를 정직하게 표현하는 타입이다. `any`와 달리, 검증 없이는 프로퍼티에 접근할 수조차 없다(`npm run typecheck`가 `orders[0].user` 같은 코드를 막아준다).
+반환 타입이 `Order[]`가 아니라 `Promise<unknown[]>`로 바뀐 게 핵심이다.
+
+`unknown`은 "뭔지 모른다"를 정직하게 표현하는 타입이다.
+
+`any`와 달리, 검증 없이는 프로퍼티에 접근할 수조차 없다(`npm run typecheck`가 `orders[0].user` 같은 코드를 막아준다).
 
 `main.ts`가 지금 그대로면 `orders`(이제 `unknown[]`)를 `totalByUser(orders: Order[])`에 넘기는 자리에서 타입 에러가 난다.
 
@@ -447,13 +561,18 @@ export function parseOrder(raw: unknown): ParsedOrder {
 }
 ```
 
-`ParsedOrder`처럼 "성공 아니면 실패"를 유니온으로 표현하고 `ok`로 분기하면, TS가 각 분기에서 안전한 필드만 쓰도록 **좁혀준다(narrowing)**. `ok: true` 분기에서는 `.order`가, `ok: false` 분기에서는 `.error`가 있다고 보장된다.
+`ParsedOrder`처럼 "성공 아니면 실패"를 유니온으로 표현하고 `ok`로 분기하면, TS가 각 분기에서 안전한 필드만 쓰도록 **좁혀준다(narrowing)**.
+
+`ok: true` 분기에서는 `.order`가, `ok: false` 분기에서는 `.error`가 있다고 보장된다.
 
 ### TS 문법
 
 - `type 이름 = ...`(타입 별칭): `interface`처럼 타입에 이름을 붙인다. 유니온처럼 `interface`로 못 쓰는 타입에도 붙일 수 있다.
+
 - 리터럴 타입(`ok: true`): 여기서 `true`는 값이 아니라 "`true` 하나만 허용하는 타입"이다. `"paid"`, `42`처럼 특정 값 하나를 타입으로 쓸 수 있다.
+
 - 판별 유니온(discriminated union): 공통 필드(`ok`)의 값으로 "지금 어느 쪽 모양인지" 구분하는 유니온이다. 아래에서 다룬다.
+
 - 맨 앞의 `|`: 줄을 바꿔 쓰기 위한 표기일 뿐 의미는 없다.
 
 #### 판별 유니온과 좁히기(narrowing)
@@ -466,7 +585,9 @@ type ParsedOrder =
   | { ok: false; error: string }; // 태그가 false일 때만 error가 있다
 ```
 
-C에서는 태그를 확인하지 않고 `v.value.i`를 읽어도 컴파일이 통과해서 엉뚱한 메모리를 읽게 된다. TS는 **태그를 확인한 분기 안에서만** 그 모양의 필드를 쓰게 허용한다.
+C에서는 태그를 확인하지 않고 `v.value.i`를 읽어도 컴파일이 통과해서 엉뚱한 메모리를 읽게 된다.
+
+TS는 **태그를 확인한 분기 안에서만** 그 모양의 필드를 쓰게 허용한다.
 
 ```ts
 const parsed = parseOrder(raw);
@@ -481,6 +602,7 @@ if (parsed.ok) {
 ```
 
 - 좁히기는 `if`뿐 아니라 삼항 연산자, `return`/`continue`로 빠져나간 뒤의 코드 등 **코드 흐름 전체**에서 일어난다.
+
 - 판별에 쓸 필드는 리터럴 타입(`true`/`false`, `"success"` 등)이어야 한다. `ok: boolean`으로 적으면 분기해도 좁혀지지 않는다.
 
 > 성공/실패를 `null`이나 예외로 표현하는 대신 이 패턴을 쓰면, "실패 처리를 빼먹는 것"이 컴파일 에러가 된다.
@@ -488,8 +610,11 @@ if (parsed.ok) {
 #### zod API
 
 - `z.object({ ... })`: "이런 필드를 가진 객체여야 한다"는 검사 규칙(스키마)을 만든다.
+
 - `z.number()`, `z.string()`, `z.boolean()`: 각 타입이어야 한다는 규칙이다. `z.number().int()`는 숫자이면서 정수여야 한다.
+
 - `.safeParse(값)`: 검사 결과를 `{ success: true, data }` 또는 `{ success: false, error }`로 돌려준다. 아래에서 `parse`와 비교한다.
+
 - `error.issues`: 어떤 필드가 왜 실패했는지 담은 배열이다. 각 항목의 `path`는 필드 위치 배열(`["price"]`), `message`는 실패 이유다.
 
 ##### `safeParse`와 `parse`
@@ -499,9 +624,13 @@ OrderSchema.parse(raw); // 실패하면 에러를 throw한다. 성공하면 검�
 OrderSchema.safeParse(raw); // 절대 throw하지 않는다. 성공/실패를 결과 객체로 돌려준다
 ```
 
-`safeParse`의 결과 `{ success: true, data } | { success: false, error }`도 `success`를 태그로 쓰는 판별 유니온이다. 그래서 `result.success`로 분기하면 `result.data`와 `result.error`가 각각 안전하게 좁혀진다.
+`safeParse`의 결과 `{ success: true, data } | { success: false, error }`도 `success`를 태그로 쓰는 판별 유니온이다.
 
-이번 프로젝트에서는 "나쁜 데이터 한 건 때문에 전체가 죽으면 안 된다"는 규정을 세웠기 때문에 `safeParse`를 쓴다. 잘못된 입력이 곧 프로그램 오류인 곳(설정 파일 로딩 등)이라면 `parse`로 즉시 터뜨리는 편이 낫다.
+그래서 `result.success`로 분기하면 `result.data`와 `result.error`가 각각 안전하게 좁혀진다.
+
+이번 프로젝트에서는 "나쁜 데이터 한 건 때문에 전체가 죽으면 안 된다"는 규정을 세웠기 때문에 `safeParse`를 쓴다.
+
+잘못된 입력이 곧 프로그램 오류인 곳(설정 파일 로딩 등)이라면 `parse`로 즉시 터뜨리는 편이 낫다.
 
 ### `main.ts`에서 쓰기
 
@@ -545,6 +674,8 @@ main().catch((err) => { console.error("치명적 오류:", err); process.exit(1)
 
 ```sh
 npx tsx src/main.ts
+
+# 출력
 병렬 조회: 501.434ms
 잘못된 데이터 건너뜀: page 1의 주문 103 - price: Invalid input: expected number, received string
 잘못된 데이터 건너뜀: page 2의 주문 202 - paid: Invalid input: expected boolean, received undefined
@@ -555,14 +686,17 @@ npx tsx src/main.ts
 
 103번(가격이 문자열)과 202번(paid 누락)이 리포트에서 조용히 빠지는 대신 이유가 로그로 남는다.
 
-검증 없이 `raw as Order`로 밀어붙였다면 `acc[o.user] = ... + o.price`에서 `12000 + "5000"`처럼 문자열 이어붙이기가 되어(TS 타입 체크를 우회했으므로 컴파일은 통과) 합계가 조용히 틀렸을 것이다. 다음 단계에서 직접 재현한다.
+검증 없이 `raw as Order`로 밀어붙였다면 `acc[o.user] = ... + o.price`에서 `12000 + "5000"`처럼 문자열 이어붙이기가 되어(TS 타입 체크를 우회했으므로 컴파일은 통과) 합계가 조용히 틀렸을 것이다.
 
 ### TS 문법
 
 - `import { ..., type Order }`: 여러 이름을 가져오면서 `Order`만 "타입으로만 쓴다"고 표시한다. 값과 타입을 한 줄에서 같이 가져올 때 쓰며, 컴파일하면 `Order` 항목만 사라진다.
+
 - 선택 속성(`{ id?: unknown }`): `?`를 붙인 필드는 있어도 되고 없어도 된다. 없으면 값은 `undefined`다.
-- `raw as { id?: unknown }`: `raw`(`unknown`)를 "id가 있을 수도 있는 객체"로 간주한다. 로그에 id를 찍으려는 용도이고 값을 검증하지 않는다(4단계 참고).
-- `allSettled` 결과의 `r.status` 분기: 판별 유니온이 다시 나온 것이다. 아래에서 다룬다.
+
+- `raw as { id?: unknown }`: `raw`(`unknown`)를 "id가 있을 수도 있는 객체"로 간주한다. 로그에 id를 찍으려는 용도이고 값을 검증하지 않는다.
+
+- `allSettled` 결과의 `r.status` 분기: 판별 유니온이 다시 나온 것이다.
 
 #### `Promise.allSettled` 결과 좁히기
 
@@ -592,9 +726,11 @@ results.forEach((r, i) => {
 ```
 
 - `return`으로 빠져나간 뒤의 코드에서는 남은 쪽 모양으로 좁혀진다. `else`로 감싸는 대신 먼저 걸러내는 방식(early return)이 흔하다.
+
 - `r.reason`은 타입이 `any`라서 `.message`가 에러 없이 통과한다. 지금은 `fetchOrders`가 `Error`를 던진다는 걸 우리가 알고 있어서 괜찮지만, 이 자리가 타입 안전의 구멍이라는 점은 기억해 둔다.
 
-> `fetchOrders`가 `unknown[]`을 돌려주므로 `r.value`도 `unknown[]`이다. 그래서 `for...of`로 꺼낸 `raw`는 `parseOrder`를 거치기 전까지 아무 필드도 읽을 수 없다.
+> `fetchOrders`가 `unknown[]`을 돌려주므로 `r.value`도 `unknown[]`이다.  
+> 그래서 `for...of`로 꺼낸 `raw`는 `parseOrder`를 거치기 전까지 아무 필드도 읽을 수 없다.
 
 ## 5. 4단계: `as`로 검증을 우회하면 어떻게 되는가
 
@@ -616,6 +752,7 @@ npx tsx src/main.ts
 타입 검사는 **통과**했는데 실행 결과는 틀렸다.
 
 - `12000 + "5000"`이 문자열 `"120005000"`이 되고, 정렬의 `b - a`는 그 문자열을 다시 숫자 1억 2천만으로 바꿔 비교하므로 kim이 1위가 된다.
+
 - 202번(`paid` 누락)은 `o.paid`가 `undefined`(falsy)라 `filter`에서 조용히 빠졌다. 에러 없이 "틀린 합계"만 남는다.
 
 > `as`는 "컴파일러야 나 믿어"일 뿐 런타임 검증이 아니다. 특히 외부 응답에 `raw as Order`를 쓰면 이런 식으로 조용히 틀린 값이 흘러간다.
@@ -642,7 +779,9 @@ npm run build # 에러가 출력되고 종료 코드는 실패(2)지만, dist/ma
 
 ## 7. 6단계: 타입 에러와 런타임 에러를 구분해서 디버깅하기
 
-JS의 디버깅 방법(`console.table`, `--inspect-brk`, VS Code 브레이크포인트)은 TS에서도 그대로 쓴다. 다만 TS는 "컴파일 단계"가 하나 더 있어서, 어느 단계에서 문제가 생겼는지부터 구분하는 게 우선이다.
+JS의 디버깅 방법(`console.table`, `--inspect-brk`, VS Code 브레이크포인트)은 TS에서도 그대로 쓴다.
+
+다만 TS는 "컴파일 단계"가 하나 더 있어서, 어느 단계에서 문제가 생겼는지부터 구분하는 게 우선이다.
 
 5단계(검사와 변환은 별개다)에서 이미 그 감각을 한 번 짚었으니, 여기서는 실제로 막혔을 때 도구를 어떻게 쓰는지를 다룬다.
 
@@ -675,6 +814,7 @@ src/main.ts(18,34): error TS2739: Type '{ ok: true; order: Order; }' is missing 
 ```
 
 - 에러 코드(`TS2739`): "이 타입에는 저 타입이 요구하는 속성이 빠져 있다"는 결론이다.
+
 - 문장 끝(`id, user, price, paid`): "무엇이 빠졌는지"의 가장 구체적인 정보로, 대개 여기에 고칠 방법이 있다. 에러가 여러 줄로 이어지면 마지막 줄이 이 역할을 한다.
 
 `{ ok: true; order: Order; }`를 `Order` 자리에 넣었다는 걸 보고(`if (parsed.ok)` 안이라 TS가 이미 성공 쪽 모양으로 좁혀 놓았다), `orders.push(parsed.order)`가 아니라 `parsed`를 넣었다는 걸 알아챈다. 원복한다.
@@ -695,7 +835,9 @@ npx tsc --noEmit --watch
 
 ### 7.4 `unknown`/`any` 지점을 좁혀서 확인하기
 
-3단계에서 `fetchOrders`가 `unknown[]`을 반환하도록 바꾼 이유가, 검증 전 데이터에 함부로 접근하지 못하게 막기 위해서였다. 그런데 디버깅 중에는 그 값이 실제로 어떤 모양인지 눈으로 봐야 할 때가 있다. 타입을 어기지 않으면서 확인하는 방법은 이렇다.
+3단계에서 `fetchOrders`가 `unknown[]`을 반환하도록 바꾼 이유가, 검증 전 데이터에 함부로 접근하지 못하게 막기 위해서였다.
+
+그런데 디버깅 중에는 그 값이 실제로 어떤 모양인지 눈으로 봐야 할 때가 있다. 타입을 어기지 않으면서 확인하는 방법은 이렇다.
 
 ```ts
 export async function fetchOrders(page: number): Promise<unknown[]> {
@@ -707,7 +849,9 @@ export async function fetchOrders(page: number): Promise<unknown[]> {
 }
 ```
 
-`orders as Order[]`로 강제 변환해서 찍어보고 싶은 유혹이 들 수 있다. 하지만 4단계에서 본 것처럼 `as`는 실제 값을 바꾸지 않고 컴파일러만 속인다.
+`orders as Order[]`로 강제 변환해서 찍어보고 싶은 유혹이 들 수 있다.
+
+하지만 4단계에서 본 것처럼 `as`는 실제 값을 바꾸지 않고 컴파일러만 속인다.
 
 확인용이라도 `as`를 넣으면 그 줄을 지우는 걸 잊었을 때 4단계의 사고가 그대로 재현된다.
 
@@ -756,7 +900,9 @@ export function parseOrder(raw: unknown): ParsedOrder {
 npx tsx --inspect-brk src/main.ts
 ```
 
-`chrome://inspect`에서 열면 `.ts` 소스가 그대로 보인다. 소스맵 덕분에 컴파일된 JS가 아니라 원본 줄 번호에 브레이크포인트가 찍힌다.
+`chrome://inspect`에서 열면 `.ts` 소스가 그대로 보인다.
+
+소스맵 덕분에 컴파일된 JS가 아니라 원본 줄 번호에 브레이크포인트가 찍힌다.
 
 `parseOrder` 함수 안, `safeParse` 다음 줄에 브레이크포인트를 찍고 103번 주문(`price`가 문자열)이 걸릴 때 `result`가 정확히 어떤 모양인지 그 자리에서 펼쳐본다.
 
@@ -791,7 +937,9 @@ VS Code라면 `.vscode/launch.json`의 `configurations` 배열에 아래 항목�
 
 > 원인을 찾으면 반드시 `strict: true`로 되돌린다. 1장 표에서 말했듯, 이 옵션이 꺼진 채로 커밋되면 이후 코드에서 TS의 널 안전성이 조용히 사라진다.
 
-C에서 `-Wall -Werror`를 빌드마다 켜두다가, 원인 하나만 좁혀 보려고 잠깐 `-Wno-unused-variable`만 남기고 나머지 경고를 죽인 뒤 반드시 원복하는 것과 같은 습관이다. 디버깅용 완화는 그 세션에서만 쓰고 커밋에는 남기지 않는다.
+C에서 `-Wall -Werror`를 빌드마다 켜두다가, 원인 하나만 좁혀 보려고 잠깐 `-Wno-unused-variable`만 남기고 나머지 경고를 죽인 뒤 반드시 원복하는 것과 같은 습관이다.
+
+디버깅용 완화는 그 세션에서만 쓰고 커밋에는 남기지 않는다.
 
 ### 시험해보기
 
@@ -814,7 +962,9 @@ npx tsx --inspect-brk src/main.ts
 **답**
 
 1. 2페이지에 `{ id: 203, user: "park", price: 0, paid: true }`를 넣으면 `positive()`에 걸린다. 0은 양수가 아니므로 0도 걸린다.
+
 2. `issues`에는 `code: 'too_small'`이 찍힌다. 타입은 숫자로 맞으니 `invalid_type`이 아니다. 함께 `origin: 'number'`, `minimum: 0`, `inclusive: false`(0은 허용 범위에 들지 않는다)가 보인다.
+
 3. 리포트에는 `잘못된 데이터 건너뜀: page 2의 주문 203 - price: Too small: expected number to be >0` 줄이 하나 더 찍히고, 합계는 `{ kim: 12000, lee: 30000 }` 그대로다.
 
 > 가격이 문자열인 103번은 타입 검사에서 먼저 걸리므로 여전히 `invalid_type`이다.
@@ -837,9 +987,13 @@ node --inspect-brk dist/main.js
 ## 8. 완성 확인
 
 - [ ] `npm run typecheck`가 에러 없이 끝난다
+
 - [ ] `npx tsx src/main.ts`의 출력이 목표의 기대 결과와 같다(잘못된 데이터 경고 2줄 포함)
+
 - [ ] 2단계의 두 실험(타입 불일치, 오타)에서 컴파일 에러를 직접 봤다
+
 - [ ] 4단계에서 "컴파일은 통과했는데 데이터는 틀린" 상황을 직접 재현했다
+
 - [ ] "타입 검사"와 "JS로의 변환"이 별개의 작업이라는 것을 설명할 수 있다
 
 ## 9. 다음 단계
@@ -865,5 +1019,7 @@ node --inspect-brk dist/main.js
 존재만 알아두면 된다. 필요해지는 시점에 TypeScript 공식 핸드북에서 해당 항목만 찾아 읽는 것으로 충분하다.
 
 - 제네릭 제약(`T extends ...`), 조건부 타입, 매핑 타입, `satisfies` 연산자
+
 - 타입 선언 파일(`.d.ts`)을 직접 작성하는 법
+
 - `enum`(문자열 리터럴 유니온으로 충분히 대체되는 경우가 많다) 등 이 프로젝트에 안 나온 문법
