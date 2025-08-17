@@ -1,0 +1,45 @@
+import { z } from "zod";
+
+export const OrderSchema = z.object({
+  id: z.number().int(),
+  user: z.string().min(1),
+  price: z.number().positive(),
+  paid: z.boolean(),
+})
+
+export const CreateOrderSchema = OrderSchema.omit({ id: true });
+export type CreateOrder = z.infer<typeof CreateOrderSchema>;
+export type Order = {
+  id: number;
+  user: string;
+  price: number;
+  paid: boolean;
+}
+
+const orders: Order[] = [
+  { id: 101, user: "kim", price: 12000, paid: true },
+  { id: 102, user: "lee", price: 8000, paid: false },
+  { id: 103, user: "kim", price: 5000, paid: true },
+  { id: 201, user: "lee", price: 30000, paid: true },
+  { id: 202, user: "park", price: 7000, paid: true },
+];
+
+let nextId = 203;
+
+export function listOrders(paid?: boolean): Order[] {
+  return paid === undefined ? [...orders] : orders.filter((o) => o.paid === paid);
+}
+export function findOrder(id?: number): Order | undefined {
+  return orders.find((o) => o.id === id);
+}
+export function addOrder(input: Omit<Order, "id">): Order {
+  const order: Order = { id: nextId++, ...input };
+  orders.push(order);
+  return order;
+}
+export function totalByUser(): Record<string, number> {
+  return orders.filter((o) => o.paid).reduce<Record<string,number>>((acc, o) => {
+    acc[o.user] = (acc[o.user] ?? 0) + o.price;
+    return acc;
+  }, {});
+}
