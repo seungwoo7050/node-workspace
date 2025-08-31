@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 import { CreateOrderDto } from "./dto/create-order.dto.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -22,6 +23,7 @@ export class OrdersController {
   }
 
   @Post()
+  @UseGuards(AuthGuard("jwt"))
   create(@Body() dto: CreateOrderDto) {
     return this.ordersService.create(dto);
   }
