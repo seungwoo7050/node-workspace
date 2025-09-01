@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ORDERS } from "@/lib/api";
+import { CreateTestOrderButton } from "./create-test-order-button";
 
 export default function OrdersPage() {
   return (
@@ -12,6 +13,7 @@ export default function OrdersPage() {
           </li>
         ))}
       </ul>
+      <CreateTestOrderButton />
     </main>
   )
 }
