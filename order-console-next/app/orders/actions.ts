@@ -14,7 +14,7 @@ export async function createTestOrder() {
   const orderRes = await fetch(`${API}/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ id: "choi", price: 9000, paid: true }),
+    body: JSON.stringify({ user: "choi", price: 9000, paid: true }),
   });
   if (!orderRes.ok) throw new Error(`주문 생성 실패: ${orderRes.status}`);
   return orderRes.json();
