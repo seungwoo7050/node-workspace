@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { NotificationsGateway } from '../notifications/notifications.gateway.js';
 
 export interface Order { id: number; user: string; price: number; paid: boolean; }
 
@@ -6,7 +7,6 @@ export interface Order { id: number; user: string; price: number; paid: boolean;
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
-  // 02b의 모듈 스코프 변수 → 싱글턴 Provider의 필드
   private readonly orders: Order[] = [
     { id: 101, user: "kim", price: 12000, paid: true },
     { id: 102, user: "lee", price: 8000, paid: false },
@@ -16,6 +16,8 @@ export class OrdersService {
   ];
   private nextId = 203;
 
+  constructor(private readonly notifications: NotificationsGateway) {}
+
   list(paid?: boolean): Order[] {
     return paid === undefined ? [...this.orders] : this.orders.filter((o) => o.paid === paid);
   }
@@ -24,10 +26,11 @@ export class OrdersService {
     if (!order) throw new NotFoundException(`order ${id} not found`);
     return order;
   }
-  create(input: Omit<Order, "id">): Order {
+  create(input: Omit<Order, "id">, creatorId: string): Order {
     const order: Order = { id: this.nextId++, ...input };
     this.orders.push(order);
     this.logger.log(`주문 생성: #${order.id} (${order.user})`);
+    this.notifications.notifyUser(creatorId, "order.created", order);
     return order;
   }
   totals(): Record<string, number> {

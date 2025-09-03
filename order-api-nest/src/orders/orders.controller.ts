@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
+import type { Request } from "express";
 import { CreateOrderDto } from "./dto/create-order.dto.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -24,7 +25,8 @@ export class OrdersController {
 
   @Post()
   @UseGuards(AuthGuard("jwt"))
-  create(@Body() dto: CreateOrderDto) {
-    return this.ordersService.create(dto);
+  create(@Body() dto: CreateOrderDto, @Req() req: Request) {
+    const userId = (req.user as { userId: string }).userId;
+    return this.ordersService.create(dto, userId);
   }
 }
