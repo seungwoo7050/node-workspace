@@ -1,0 +1,26 @@
+{
+  "name": "order-api-fastify",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "keywords": [],
+  "type": "module",
+  "dependencies": {
+    "fastify": "^5.12.5",
+    "fastify-type-provider-zod": "^7.0.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "ws": "^8.22.0"
+  }
+}
