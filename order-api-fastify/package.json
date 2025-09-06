@@ -12,6 +12,7 @@
   "keywords": [],
   "type": "module",
   "dependencies": {
+    "@fastify/websocket": "^11.3.4",
     "fastify": "^5.12.5",
     "fastify-type-provider-zod": "^7.0.0",
     "zod": "^4.6.5"
