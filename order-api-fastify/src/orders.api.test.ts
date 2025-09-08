@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app.js";
+import { __resetForTests } from "./orders.store.js";
+
+beforeEach(() => { __resetForTests(); });
 
 describe("orders API", () => {
   it("GET /orders/totals는 200과 사용자별 합계를 반환한다", async () => {

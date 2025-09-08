@@ -28,3 +28,9 @@ export function totalByUser(): Record<string, number> {
     return acc;
   }, {});
 }
+
+export function __resetForTests() {
+  orders.length = 0;
+  orders.push(...initialOrders.map((o) => ({ ...o })));
+  nextId = 203;
+}
