@@ -4,7 +4,11 @@
 ![Runtime](https://img.shields.io/badge/runtime-Node.js%20%7C%20ESM-lightgrey)
 ![Package](https://img.shields.io/badge/package-npm-lightgrey)
 
-하나의 주문 관리 도메인을 JavaScript 스크립트부터 실시간 알림이 붙은 프론트엔드 · 백엔드까지 단계마다 다시 구현한 저장소입니다. 단계마다 독립된 브랜치를 쓰며, 브랜치끼리 공통 조상이 없는 별개의 루트 히스토리입니다. 이 브랜치(`main`)에는 이 인덱스 문서만 있습니다.
+하나의 주문 관리 도메인을 JavaScript 스크립트부터 실시간 알림이 붙은 프론트엔드 · 백엔드까지 단계마다 다시 구현한 저장소입니다.
+
+단계마다 독립된 브랜치를 쓰며, 브랜치끼리 공통 조상이 없는 별개의 루트 히스토리입니다.
+
+이 브랜치(`main`)에는 이 인덱스 문서만 있습니다.
 
 ## 프로젝트
 
@@ -21,7 +25,11 @@
 | [appendix/01-fastify-ws](https://github.com/seungwoo7050/node-workspace/tree/appendix/01-fastify-ws) | Fastify · ws | 주문 API를 Fastify 플러그인 구조로 다시 만들고 주문 생성을 WebSocket으로 방송 |
 | [appendix/02-test-toolkit](https://github.com/seungwoo7050/node-workspace/tree/appendix/02-test-toolkit) | Vitest · Playwright · Lighthouse CI | 손으로 확인해 온 두 프로젝트에 단위 · API · e2e · 접근성 · 성능 측정을 붙임 |
 
-`foundation`은 순서대로 쌓아 올리는 본 과정입니다. `02`와 `03`은 같은 번호에서 백엔드(`b`)와 프론트엔드(`f`)로 갈라지고, `04`에서 두 갈래를 하나로 잇습니다. `appendix`는 같은 도메인을 다른 선택지로 다시 만들거나 완성된 결과물에 도구를 덧붙이는 독립 단계입니다.
+`foundation`은 순서대로 쌓아 올리는 본 과정입니다.
+
+`02`와 `03`은 같은 번호에서 백엔드(`b`)와 프론트엔드(`f`)로 갈라지고, `04`에서 두 갈래를 하나로 잇습니다.
+
+`appendix`는 같은 도메인을 다른 선택지로 다시 만들거나 완성된 결과물에 도구를 덧붙이는 독립 단계입니다.
 
 각 브랜치의 `README.md`에 그 단계의 지원 범위, 구성, 실행, 테스트가 정리되어 있습니다.
 
@@ -33,7 +41,9 @@ cd node-workspace
 git switch foundation/04-integration-and-auth # 원하는 단계 브랜치
 ```
 
-브랜치를 바꾸면 작업 트리 전체가 해당 단계로 교체됩니다. 앞 단계와 나란히 두고 비교하려면 worktree를 쓰는 편이 편합니다.
+브랜치를 바꾸면 작업 트리 전체가 해당 단계로 교체됩니다.
+
+앞 단계와 나란히 두고 비교하려면 worktree를 쓰는 편이 편합니다.
 
 ```sh
 git worktree add ../02b-express foundation/02b-express
