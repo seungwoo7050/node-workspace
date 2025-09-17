@@ -14,8 +14,15 @@
 
 ## 구성
 
-- `order-report/`: Node 스크립트
-  - `api.js`(가짜 비동기 API), `report.js`(순수 집계 함수), `main.js`(조립과 출력)
+```text
+.
+├── order-report/               # Node 스크립트
+│   ├── package.json            # "type": "module"(ESM), 의존성 없음
+│   ├── api.js                  # 가짜 비동기 API: 0.5초 지연, 1·2페이지 주문, 3페이지 실패
+│   ├── report.js               # 순수 집계 함수(totalByUser, topUser)
+│   └── main.js                 # 세 페이지 병렬 조회 → 집계 → 출력
+└── README.md
+```
 
 ## 실행
 
